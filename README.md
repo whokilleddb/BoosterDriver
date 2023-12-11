@@ -1,8 +1,8 @@
 # Booster
 
-A PoC and code walkthrough to demonstrate how to fascilitate communication between useland applications and windows kernel driver. 
+A PoC and code walkthrough to demonstrate how to facilitate communication between userland applications and Windows kernel driver. This is a follow-up to [my last Windows Kernel development repository](https://github.com/whokilleddb/HelloWorldDriver) where I document my journey into Windows Kernel land - while giving extensive code walkthroughs. 
 
-## Compile
+In this repository, we write a Client and a Driver which work together to boost a thread's Base Priority. 
 
 ## Usage
 
@@ -14,7 +14,13 @@ BoosterClient.exe <Thread ID> <Target Priority>
 
 ## Walkthrough
 
-This part of the guide walks you through the Driver and Client code to explain the underlying concepts.
+This part of the guide walks you through the Driver and Client code to explain the underlying concepts. First, we take a look into the driver itself which explores concepts like Handling Dispatch routines, Major Functions, etc, while the Client covers topics like how to use `CreateFile()` and `WriteFile()` to communicate with a driver. 
+
+Also, we briefly touch upon IRQs but more upon that in future articles. 
+
+## References
+
+This article is directly influenced by [@zodicon's Windows Internal training](https://training.trainsec.net/view/courses/windows-kernel-programming-1) and I really recommend everyone checking it out.  
 
 ### The Driver
 

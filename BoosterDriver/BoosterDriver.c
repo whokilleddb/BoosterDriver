@@ -22,35 +22,27 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) 
 	UNICODE_STRING symlink_name = RTL_CONSTANT_STRING(L"\\??\\Booster");
 	UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\Booster");
 
-	do {
-		// Create a device object for the client to talk to
-		status = IoCreateDevice(
-			DriverObject,						// Pointer to the driver object for the caller
-			0,									// No device extension
-			&device_name,						// Name of the device name
-			FILE_DEVICE_UNKNOWN,				// Specify that this is a software device
-			0,									// No additional information for the device
-			FALSE,								// Device is not exclusive 
-			&device_obj);						// Receive the Device object
-		if (!NT_STATUS(status)) {
-			KdPrint((DRIVER_PREFIX "Error creating device (0x%X)\n", status));
-			break;
-		}
+	// Create a device object for the client to talk to
+	status = IoCreateDevice(
+		DriverObject,						// Pointer to the driver object for the caller
+		0,									// No device extension
+		&device_name,						// Name of the device name
+		FILE_DEVICE_UNKNOWN,				// Specify that this is a software device
+		0,									// No additional information for the device
+		FALSE,								// Device is not exclusive 
+		&device_obj);						// Receive the Device object
+	if (!NT_STATUS(status)) {
+		KdPrint((DRIVER_PREFIX "Error creating device (0x%X)\n", status));
+		return status;
+	}
+	device_obj->Flags |= DO_BUFFERED_IO;
 
-		device_obj->Flags |= DO_BUFFERED_IO;
-
-		// Create symbolic link
-		status = IoCreateSymbolicLink(&symlink_name, &device_name);
-		if (!NT_SUCCESS(status)) {
-			KdPrint((DRIVER_PREFIX "Error creating symbolic link (0x%X)\n", status));
-			break;
-		}
-	} while (0);
-
+	// Create symbolic link
+	status = IoCreateSymbolicLink(&symlink_name, &device_name);
 	if (!NT_SUCCESS(status)) {
-		if (device_obj) {
-			IoDeleteDevice(device_obj);
-		}
+		KdPrint((DRIVER_PREFIX "Error creating symbolic link (0x%X)\n", status));
+		IoDeleteDevice(device_obj);
+		return status;
 	}
 
 	return status;
@@ -71,9 +63,9 @@ NTSTATUS BoosterCreateClose(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
 	return STATUS_SUCCESS;
 }
 
-// Dispatch routine for Write syscall 
+// Dispatch routine for Write 
 NTSTATUS BoosterWrite(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
-	
+	PIO_STACK_LOCATION irp_sp = IoGetCurrentIrpStackLocation(Irp);
 	return STATUS_SUCCESS;
 }
 
