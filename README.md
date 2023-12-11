@@ -83,7 +83,18 @@ Following that, we use the `IoCreateDevice()` to go ahead and actually create th
 |`DEVICE_TYPE DeviceType`|`FILE_DEVICE_UNKNOWN`| Indicates the type of device - since we do not confront to the usual predefined driver types, we specify `FILE_DEVICE_UNKNOWN`.|
 |`ULONG DeviceCharacteristics`| 0| Specifies additional information about the driver's device - since we have no special permissions, we set it to 0. |
 |`BOOLEAN Exclusive` |`FALSE`| Specifies if the device object represents an [exclusive device](https://learn.microsoft.com/en-us/windows-hardware/drivers/). Most drivers set this value to **FALSE**. |
-|PDEVICE_OBJECT \*DeviceObject |`&device_obj`| Pointer to a variable that receives a pointer to the newly created [DEVICE_OBJECT](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_device_object) structure. |
+|`PDEVICE_OBJECT *DeviceObject` |`&device_obj`| Pointer to a variable that receives a pointer to the newly created [DEVICE_OBJECT](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_device_object) structure. |
+
+If the function runs successfully - we should have a valid Device object. This address to this device can also be found at the first index of the linked list pointed by `DeviceObject` field of `DriverObject`. 
+
+![](https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/images/3devobj.png)
+
+
+Next up, we also create a symbolic link for the device in the so that the client can easily access it. We use the `IoCreateSymbolicLink()` function to create a symbolic link to our device called `\??\Booster` where `\??` is a "fake" prefix which refers to per-user Dos devices. 
+
+However, if the `IoCreateSymbolicLink()` fails, we need to delete the previously created device object as if `DriverEntry()` function returns something other than `STATUS_SUCCESS`, the unload routine is never called - so we don't have any opportunities to cleanup after ourselves. If we do not delete the device object - we would leak the device object.  
+
+Finally, we return the valid `NTSTATUS` from the function signifying that the `DriverEntry` routine was complete. 
 
 ### The Client
 
@@ -119,7 +130,7 @@ int main(int argc, char* argv[]) {
 	t_data.ThreadId = thread_id;
 	t_data.TargetPriority = t_priority;
 
-	HANDLE hDevice = CreateFile(L"\\\\.\\BoosterDriver", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+	HANDLE hDevice = CreateFile(L"\\\\.\\Booster", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 	BOOL bRes = WriteFile(hDevice, &t_data, sizeof(t_data), &ret, NULL); 
 	
 	printf("[i] Priority changed from %d -> %d", t_data.CurrentPriority, t_data.TargetPriority);
