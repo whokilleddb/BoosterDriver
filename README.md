@@ -69,7 +69,7 @@ The first part of the code sets the necessary function pointers:
 	- `IRP_MJ_CLOSE`: A routine to deal with requests sent by the client when it tries to close the handle to the Device object 
 	- `IRP_MJ_WRITE`: A routine to deal with requests sent by the client when it tries to transfer data to the driver using operations like `WriteFile()` or `NtWriteFile()`
 
-For the sake of simplicity, we will point the major functions indicated by `IRP_MJ_CREATE` and `IRP_MJ_WRITE` to the same dispatch routine. 
+For the sake of simplicity, we will point the major functions indicated by `IRP_MJ_CREATE` and `IRP_MJ_WRITE` to the same dispatch routine. But, why do we need to specify these functions in the first place? [Microsoft Documentation](https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/irp-mj-create) specifies that we need to specify these functions to handle the Create/Close Dispatch routines so that the clients can have an handle to it, and, in turn use functions like `WriteFile()` which need a handle to be passed in as one of the parameters. 
 
 Next up, we create a Device for the Client to interact with. We use the `RTL_CONSTANT_STRING` macro to initialize a `UNICODE_STRING` with the full device name. 
 
