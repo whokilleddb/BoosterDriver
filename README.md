@@ -96,6 +96,10 @@ However, if the `IoCreateSymbolicLink()` fails, we need to delete the previously
 
 Finally, we return the valid `NTSTATUS` from the function signifying that the `DriverEntry` routine was complete. 
 
+#### BoosterCreateClose
+
+This function 
+
 ### The Client
 
 With the driver done, we can take a look at the client which we would use to send messages to the driver itself. The pseudo-code for the client looks as such:
