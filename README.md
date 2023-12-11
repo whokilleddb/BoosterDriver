@@ -1,6 +1,6 @@
 # Booster
 
-A PoC and code walkthrough to demonstrate how to facilitate communication between userland applications and Windows kernel driver. This is a follow-up to [my last Windows Kernel development repository](https://github.com/whokilleddb/HelloWorldDriver) where I document my journey into Windows Kernel land - while giving extensive code walkthroughs. 
+A Proof-of-Code and code walkthrough to demonstrate how to facilitate communication between userland applications and Windows kernel driver. This is a follow-up to [my last Windows Kernel development repository](https://github.com/whokilleddb/HelloWorldDriver) where I document my journey into Windows Kernel land - while giving extensive code walkthroughs. 
 
 In this repository, we write a Client and a Driver which work together to boost a thread's Base Priority. 
 
@@ -24,11 +24,16 @@ This article is directly influenced by [@zodicon's Windows Internal training](ht
 
 ### The Driver
 
-We break down this 
+We will be breaking down this section by the different functions which constitute our driver, namely:
+
+- [`DriverEntry()`](#driverentry) - This serves as an entry point when the driver is loaded by the system
+- [`BoosterCreateClose()`](#boostercreateclose) - This function handles Create/Close dispatch routines issued by the Client
+- [`BoosterWrite()`](#boosterwrite) - This function handles Write dispatch routine 
+- [`BoosterUnload()`](#boosterunload) - This function is called when the system unloads our driver
 
 #### DriverEntry
 
-Looking at the `DriverEntry()` function of the Driver, it has the following code:
+Looking at the `DriverEntry()` function, it has the following code:
 ```c
 NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath) {
   // Set major functions to indicate supported functions
@@ -55,11 +60,11 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath)
 }
 ```
 
-There are three major parts to the function - Setting the major functions to indicate the functions our driver supports, creating a device object for the client to interact with, and finally create a symlink for the client to call `CreateFile()` on. 
+There are three major parts to the function - Setting the major functions to indicate the functions our driver supports, creating a device object for the client to interact with, and finally create a symbolic link for the client to call `CreateFile()` on. 
 
 The first part of the code sets the necessary function pointers:
  - First we point set the `DriverUnload` member of the `DriverObject` which points to the unload routine.
- - Then we set the `MajorFunction` members. The `MajorFunction` array contains a list of function pointers which serve as entrypoints for the Driver's dispathc routines. These indicate the functionalities supported by the driver. In our case, we support three routines:
+ - Then we set the `MajorFunction` members. The `MajorFunction` array contains a list of function pointers which serve as entry-points for the Driver's dispatch routines. These indicate the functionalities supported by the driver. In our case, we support three routines:
 	- `IRP_MJ_CREATE`: A routine to deal with requests sent by the client when it tries to open a handle to the Device object 
 	- `IRP_MJ_CLOSE`: A routine to deal with requests sent by the client when it tries to close the handle to the Device object 
 	- `IRP_MJ_WRITE`: A routine to deal with requests sent by the client when it tries to transfer data to the driver using operations like `WriteFile()` or `NtWriteFile()`
