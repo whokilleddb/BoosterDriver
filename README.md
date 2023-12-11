@@ -44,7 +44,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath)
   // Create a device object for the client to talk to
   PDEVICE_OBJECT device_obj = NULL;
   UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\Booster");
-  NTSTATUS status = IoCreateDevice(DriverObject, 0, &device_name,	FILE_DEVICE_UNKNOWN, 0,	FALSE, &device_obj);
+  NTSTATUS status = IoCreateDevice(DriverObject, 0, &device_name, FILE_DEVICE_UNKNOWN, 0, FALSE, &device_obj);
   if (!NT_STATUS(status))	return status;
   device_obj->Flags |= DO_BUFFERED_IO;
 
@@ -71,7 +71,19 @@ The first part of the code sets the necessary function pointers:
 
 For the sake of simplicity, we will point the major functions indicated by `IRP_MJ_CREATE` and `IRP_MJ_WRITE` to the same dispatch routine. But, why do we need to specify these functions in the first place? [Microsoft Documentation](https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/irp-mj-create) specifies that we need to specify these functions to handle the Create/Close Dispatch routines so that the clients can have an handle to it, and, in turn use functions like `WriteFile()` which need a handle to be passed in as one of the parameters. 
 
-Next up, we create a Device for the Client to interact with. We use the `RTL_CONSTANT_STRING` macro to initialize a `UNICODE_STRING` with the full device name. 
+Next up, we create a Device for the Client to interact with. We use the `RTL_CONSTANT_STRING` macro to initialize a `UNICODE_STRING` with the full path name of the device. We create a device called `Booster` in the `\Device` [object directory](https://en.wikipedia.org/wiki/Object_Manager_(Windows)), which is where devices are usually created.
+
+Following that, we use the `IoCreateDevice()` to go ahead and actually create the device. The parameters passed to this function are as follows:
+
+| Parameter | Value | Description |
+| --|--|---|
+|`PDRIVER_OBJECT DriverObject` | `DriverObject` | Pointer to the driver object for the caller. In our case, we get the pointer as a parameter for the `DriverEntry()` function.|
+|`ULONG DeviceExtensionSize` | 0 | Specifies the driver-determined number of bytes to be allocated for the [device extension](https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/device-extensions) of the device object. This allows us to attach extra information to the devices, in case we need to. In our case, we dont have any such special requirements.|
+|`PUNICODE_STRING DeviceName` | `&device_name` |Pointer to the null-terminated device name Unicode string.|
+|`DEVICE_TYPE DeviceType`|`FILE_DEVICE_UNKNOWN`| Indicates the type of device - since we do not confront to the usual predefined driver types, we specify `FILE_DEVICE_UNKNOWN`.|
+|`ULONG DeviceCharacteristics`| 0| Specifies additional information about the driver's device - since we have no special permissions, we set it to 0. |
+|`BOOLEAN Exclusive` |`FALSE`| Specifies if the device object represents an [exclusive device](https://learn.microsoft.com/en-us/windows-hardware/drivers/). Most drivers set this value to **FALSE**. |
+|PDEVICE_OBJECT \*DeviceObject |`&device_obj`| Pointer to a variable that receives a pointer to the newly created [DEVICE_OBJECT](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_device_object) structure. |
 
 ### The Client
 
