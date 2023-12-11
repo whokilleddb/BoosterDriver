@@ -51,9 +51,14 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath)
 NTSTATUS BoosterCreateClose(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
 	KdPrint((DRIVER_PREFIX "CreateClose\n"));
 
+	HANDLE h_curr_pid = PsGetCurrentProcessId();
+	ULONG u_curr_pid = HandleToULong(h_curr_pid); 
+
 	if (IoGetCurrentIrpStackLocation(Irp)->MajorFunction == IRP_MJ_CREATE) {
-		KdPrint((DRIVER_PREFIX "Create called from process %u\n",
-			HandleToULong(PsGetCurrentProcessId())));
+		KdPrint((DRIVER_PREFIX "Create called from process %u\n", u_curr_pid));
+	}
+	else {
+		KdPrint((DRIVER_PREFIX "Close called from process %u\n", u_curr_pid));
 	}
 
 	Irp->IoStatus.Status = STATUS_SUCCESS;

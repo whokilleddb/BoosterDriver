@@ -60,16 +60,17 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath)
 }
 ```
 
-There are three major parts to the function - Setting the major functions to indicate the functions our driver supports, creating a device object for the client to interact with, and finally create a symbolic link for the client to call `CreateFile()` on. 
+There are three major parts to the function - Setting the major functions to indicate the functions our driver supports, creating a device object for the client to interact with, and finally creating a symbolic link for the client to call `CreateFile()` on. 
 
 The first part of the code sets the necessary function pointers:
- - First we point set the `DriverUnload` member of the `DriverObject` which points to the unload routine.
- - Then we set the `MajorFunction` members. The `MajorFunction` array contains a list of function pointers which serve as entry-points for the Driver's dispatch routines. These indicate the functionalities supported by the driver. In our case, we support three routines:
+
+ - First, set the `DriverUnload` member of the `DriverObject` which points to the unload routine.
+ - Then we set the `MajorFunction` members. The `MajorFunction` array contains a list of function pointers that serve as entry points for the Driver's dispatch routines. These indicate the functionalities supported by the driver. In our case, we support three routines:
 	- `IRP_MJ_CREATE`: A routine to deal with requests sent by the client when it tries to open a handle to the Device object 
 	- `IRP_MJ_CLOSE`: A routine to deal with requests sent by the client when it tries to close the handle to the Device object 
 	- `IRP_MJ_WRITE`: A routine to deal with requests sent by the client when it tries to transfer data to the driver using operations like `WriteFile()` or `NtWriteFile()`
 
-For the sake of simplicity, we will point the major functions indicated by `IRP_MJ_CREATE` and `IRP_MJ_WRITE` to the same dispatch routine. But, why do we need to specify these functions in the first place? [Microsoft Documentation](https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/irp-mj-create) specifies that we need to specify these functions to handle the Create/Close Dispatch routines so that the clients can have an handle to it, and, in turn use functions like `WriteFile()` which need a handle to be passed in as one of the parameters. 
+For the sake of simplicity, we will point the major functions indicated by `IRP_MJ_CREATE` and `IRP_MJ_WRITE` to the same dispatch routine. But, why do we need to specify these functions in the first place? [Microsoft Documentation](https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/irp-mj-create) specifies that we need to specify these functions to handle the Create/Close Dispatch routines so that the clients can have a handle for it, and, in turn, uses functions like `WriteFile()` which need a handle to be passed in as one of the parameters. 
 
 Next up, we create a Device for the Client to interact with. We use the `RTL_CONSTANT_STRING` macro to initialize a `UNICODE_STRING` with the full path name of the device. We create a device called `Booster` in the `\Device` [object directory](https://en.wikipedia.org/wiki/Object_Manager_(Windows)), which is where devices are usually created.
 
@@ -90,15 +91,38 @@ If the function runs successfully - we should have a valid Device object. This a
 ![](https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/images/3devobj.png)
 
 
-Next up, we also create a symbolic link for the device in the so that the client can easily access it. We use the `IoCreateSymbolicLink()` function to create a symbolic link to our device called `\??\Booster` where `\??` is a "fake" prefix which refers to per-user Dos devices. 
+Next up, we also create a symbolic link for the device so that the client can easily access it. We use the `IoCreateSymbolicLink()` function to create a symbolic link to our device called `\??\Booster` where `\??` is a "fake" prefix that refers to per-user Dos devices. 
 
-However, if the `IoCreateSymbolicLink()` fails, we need to delete the previously created device object as if `DriverEntry()` function returns something other than `STATUS_SUCCESS`, the unload routine is never called - so we don't have any opportunities to cleanup after ourselves. If we do not delete the device object - we would leak the device object.  
+However, if the `IoCreateSymbolicLink()` fails, we need to delete the previously created device object as if `DriverEntry()` function returns something other than `STATUS_SUCCESS`, the unload routine is never called - so we don't have any opportunities to clean up after ourselves. If we do not delete the device object - we will leak the device object.  
 
 Finally, we return the valid `NTSTATUS` from the function signifying that the `DriverEntry` routine was complete. 
 
 #### BoosterCreateClose
 
 This function 
+
+```c
+NTSTATUS BoosterCreateClose(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
+  KdPrint((DRIVER_PREFIX "CreateClose\n"));
+
+  HANDLE h_curr_pid = PsGetCurrentProcessId();
+  ULONG u_curr_pid = HandleToULong(h_curr_pid); 
+
+  if (IoGetCurrentIrpStackLocation(Irp)->MajorFunction == IRP_MJ_CREATE) {
+    KdPrint((DRIVER_PREFIX "Create called from process %u\n", u_curr_pid));
+  }
+  else {
+  KdPrint((DRIVER_PREFIX "Close called from process %u\n", u_curr_pid));
+  }
+
+  Irp->IoStatus.Status = STATUS_SUCCESS;
+  Irp->IoStatus.Information = 0;
+  IoCompleteRequest(Irp, 0);
+  return STATUS_SUCCESS;
+}
+```
+
+---
 
 ### The Client
 
