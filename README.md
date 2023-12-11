@@ -20,40 +20,38 @@ Also, we briefly touch upon IRQs but more upon that in future articles.
 
 ## References
 
-This article is directly influenced by [@zodicon's Windows Internal training](https://training.trainsec.net/view/courses/windows-kernel-programming-1) and I really recommend everyone checking it out.  
+This article is directly influenced by [@zodicon's Windows Internal training](https://training.trainsec.net/view/courses/windows-kernel-programming-1) and I recommend everyone to check it out.  
 
 ### The Driver
 
-The first 
+We break down this 
 
 #### DriverEntry
 
 Looking at the `DriverEntry()` function of the Driver, it has the following code:
 ```c
-NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
-	UNREFERENCED_PARAMETER(RegistryPath);
-	
-	// Set major functions to indicate supported functions
-	DriverObject->DriverUnload = BoosterUnload;
-	DriverObject->MajorFunction[IRP_MJ_WRITE] = BoosterWrite;
-	DriverObject->MajorFunction[IRP_MJ_CREATE] = DriverObject->MajorFunction[IRP_MJ_CLOSE] = BoosterCreateClose;
-	
-	// Create a device object for the client to talk to
-	PDEVICE_OBJECT device_obj = NULL;
-	UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\Booster");
-	NTSTATUS status = IoCreateDevice(DriverObject, 0, &device_name,	FILE_DEVICE_UNKNOWN, 0,	FALSE, &device_obj);
-	if (!NT_STATUS(status))	return status;
-	device_obj->Flags |= DO_BUFFERED_IO;
-	
-	// Create symbolic link
-	UNICODE_STRING symlink_name = RTL_CONSTANT_STRING(L"\\??\\Booster");
-	status = IoCreateSymbolicLink(&symlink_name, &device_name);
-	if (!NT_SUCCESS(status)) {
-		IoDeleteDevice(device_obj);
-		return status;
-	}
+NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath) {
+  // Set major functions to indicate supported functions
+  DriverObject->DriverUnload = BoosterUnload;
+  DriverObject->MajorFunction[IRP_MJ_WRITE] = BoosterWrite;
+  DriverObject->MajorFunction[IRP_MJ_CREATE] = DriverObject->MajorFunction[IRP_MJ_CLOSE] = BoosterCreateClose;
 
-	return status;
+  // Create a device object for the client to talk to
+  PDEVICE_OBJECT device_obj = NULL;
+  UNICODE_STRING device_name = RTL_CONSTANT_STRING(L"\\Device\\Booster");
+  NTSTATUS status = IoCreateDevice(DriverObject, 0, &device_name,	FILE_DEVICE_UNKNOWN, 0,	FALSE, &device_obj);
+  if (!NT_STATUS(status))	return status;
+  device_obj->Flags |= DO_BUFFERED_IO;
+
+  // Create symbolic link
+  UNICODE_STRING symlink_name = RTL_CONSTANT_STRING(L"\\??\\Booster");
+  status = IoCreateSymbolicLink(&symlink_name, &device_name);
+  if (!NT_SUCCESS(status)) {
+    IoDeleteDevice(device_obj);
+    return status;
+  }
+
+  return status;
 }
 ```
 

@@ -5,8 +5,7 @@ void BoosterUnload(PDRIVER_OBJECT);
 NTSTATUS BoosterCreateClose(PDEVICE_OBJECT, PIRP Irp);
 NTSTATUS BoosterWrite(PDEVICE_OBJECT, PIRP Irp);
 
-NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
-	UNREFERENCED_PARAMETER(RegistryPath);
+NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath) {
 	KdPrint((DRIVER_PREFIX "DriverEntry 0x%p\n", DriverObject));
 
 	// Set major functions to indicate supported functions
