@@ -78,7 +78,7 @@ NTSTATUS BoosterWrite(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
 	PETHREAD thread = NULL;
 	NTSTATUS status = STATUS_SUCCESS;
 	PIO_STACK_LOCATION irp_sp = IoGetCurrentIrpStackLocation(Irp);
-	if (irp_sp->Parameters.Write.Length < sizeof(ThreadData)) {
+	if (irp_sp->Parameters.Write.Length != sizeof(ThreadData)) {
 		status = STATUS_BUFFER_TOO_SMALL;
 		goto io;
 	}

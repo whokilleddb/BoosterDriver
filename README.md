@@ -138,7 +138,7 @@ NTSTATUS BoosterWrite(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
 	PETHREAD thread = NULL;
 	NTSTATUS status = STATUS_SUCCESS;
 	PIO_STACK_LOCATION irp_sp = IoGetCurrentIrpStackLocation(Irp);
-	if (irp_sp->Parameters.Write.Length < sizeof(ThreadData)) {
+	if (irp_sp->Parameters.Write.Length != sizeof(ThreadData)) {
 		status = STATUS_BUFFER_TOO_SMALL;
 		goto io;
 	}
@@ -179,7 +179,7 @@ This structure will be shared by the Driver and the Client to pass information b
 
 One important thing to do is to make sure that we got the right data from the Client and enforce the necessary checks on the Driver side of the code regardless of the restrictions imposed by the client code, just to make sure we don't get a BSOD. 
 
-The first thing we do is check the length of the buffer received from the Client  - to ensure that we have received the complete structure. For this, we check the `Length` parameter of the `Write` struct in the `Parameter` union (_phew_ - that was long). The `Parameter` union is an important component of `IO_STACK_LOCATION` which contains many different structures corresponding to different IRPs, which, in our case, is the `Write` structure. Coming back, we check the `Length` value of `Write` and in case we find that it is less than the size of the `ThreadData` structure, we set the appropriate `NTSTATUS` and jump to complete the I/O Request. 
+The first thing we do is check the length of the buffer received from the Client  - to ensure that we have received the complete structure. For this, we check the `Length` parameter of the `Write` struct in the `Parameter` union (_phew_ - that was long). The `Parameter` union is an important component of `IO_STACK_LOCATION` which contains many different structures corresponding to different IRPs, which, in our case, is the `Write` structure. Coming back, we check the `Length` value of `Write` and in case we find that it is not equal to the size of the `ThreadData` structure, we set the appropriate `NTSTATUS` and jump to complete the I/O Request. 
 
 Next, we need a pointer to the data sent through by the client and we get it from the `UserBuffer` component of the `IRP` structure. This is the user-mode address provided by the client but since we are operating from Kernel Land, we have access to it without any trouble. This isn't the best way(or the safest) way to go about things but this is what we are working with for now. Note that we can do this because the thread that makes the Write dispatch call, is the same one that jumps into the Kernel via `NtWriteFile` syscall - hence we have the correct process context. 
 
