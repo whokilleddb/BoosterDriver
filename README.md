@@ -185,7 +185,30 @@ Next, we need a pointer to the data sent through by the client and we get it fro
 
 We map the buffer to a pointer of the type `ThreadData` and then proceed to check it the pointer is valid, followed by checks to ensure that the requested thread priority lies in the valid range of 1 to 31 (we cannot have a thread priority of 0 as [only the zero-page thread can have a priority of zero](https://learn.microsoft.com/en-us/windows/win32/procthread/scheduling-priorities)). If these checks fail, we again set the appropriate `NTSTATUS` and skip to completing the I/O Request.
 
+Here comes the part where we actually change the thread's priority. I will work my way in the reverse order for the following pseudo-codeL
+```c
+	HANDLE h_tid = ULongToHandle(p_data->ThreadId);
+	status = PsLookupThreadByThreadId(h_tid, &thread);
+	if (!NT_SUCCESS(status)) 
+		// return bad status
+	KeSetPriorityThread(thread, p_data->TargetPriority);
+```
+The [`KeSetPriorityThread()`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-kesetprioritythread) function is responsible for setting the run-time priority of the thread. It takes in two parameters - a thread object and the target priority. We get the latter from the `ThreadData` structure passed to us by the client. However, we do not have a thread object - we only have a Thread ID which the Client passes to us. To get the corresponding Thread object, we need the [`PsLookupThreadByThreadId()`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-pslookupthreadbythreadid) function which again, takes in two parameters - a Thread ID in the form of a `HANDLE`, and a pointer `PETHREAD` variable which receives the pointer to the Thread object. If this function fails, we again do the same old drill of completing the IRP with the error status. We are almost there - just one minor issue remains and it's the fact that the `PsLookupThreadByThreadId()` takes in a `HANDLE` as the first parameter, so we need to convert the `ThreadId` member of the `ThreadData` structure into the right format. Luckily, we have a macro for that called `ULongToHandle()` which does just that. Note that we cannot simply cast a `ULONG` into a `HANDLE`
+as they differ in sizes, but a lazier workaround can be something like:
 
+```c
+PsLookupThreadByThreadId((HANDLE)(ULONG_PTR)p_data->ThreadId, &thread);
+```
+
+One more thing to remember is that the `PsLookupThreadByThreadId()` function increases the thread's reference count - so the thread object won't be destroyed even after the thread dies, because it would still have an outstanding reference - at least one. So, `KeSetPriorityThread()` would never fail - because the thread object still has a valid reference count, and even though it might not make sense to change the priority of a thread that has died - it is still not an error.  
+
+However, once `KeSetPriorityThread()` runs, we need to decrease the reference count or else the thread object lives forever till the system restarts. To do this, we use the `ObDereferenceObject()` macro on the thread object to decrease the reference count. Finally, we set the `info` variable to the size of the `ThreadData` structure and pass it to `Irp->IoStatus.Information` to indicate to the Client that the structure was processed(this is the value you get back in the `lpNumberOfBytesWritten` variable of `WriteFile()` on the client's end).
+
+We set the final bit of the `IO_STATUS_BLOCK` and complete the IRP request, as well as return the corresponding status from the dispatch routine. 
+
+----
+
+That concludes everything on the driver's end for this project - time to write our client.
 
 ----
 
@@ -226,7 +249,7 @@ int main(int argc, char* argv[]) {
 	HANDLE hDevice = CreateFile(L"\\\\.\\Booster", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 	BOOL bRes = WriteFile(hDevice, &t_data, sizeof(t_data), &ret, NULL); 
 	
-	printf("[i] Priority changed from %d -> %d", t_data.CurrentPriority, t_data.TargetPriority);
+	printf("[i] Priority changed to:\t\t%d", t_data.TargetPriority);
 	CloseHandle(hDevice);
 
 	return 0;
