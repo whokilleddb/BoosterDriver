@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
 		CloseHandle(hDevice);
 		return -1;
 	}
-	printf("[i] Priority changed to:\t%d", t_data.TargetPriority);
+	printf("[i] Priority changed to:\t\t%d", t_data.TargetPriority);
 	CloseHandle(hDevice);
 	return 0;
 }

@@ -166,7 +166,17 @@ io:
 }
 ```
 
-The 
+The first thing we do is get a pointer to the IRP's stack with [`IoGetCurrentIrpStackLocation()`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-iogetcurrentirpstacklocation) - essentially returning a pointer to a [`IO_STACK_LOCATION`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_io_stack_location) structure which contains information associated with each IRP (more about these in some future article). Another important point to note before we proceed is to look into the `BoosterCommon.h` header file which defines the `ThreadData` structure as follows:
+```c
+typedef struct _ThreadData{}
+```
+
+This structure will be shared by the Driver and the Client to pass information back and forth. 
+
+One important thing to do is to make sure that we got the right data from the Client and enforce the necessary checks on the Driver side of the code regardless of the restrictions imposed by the client code, just to make sure we dont get a BSOD. 
+
+The first thing we do is check the length of the buffer received from the Client  - to ensure that we have received the complete structure. For this we check the the `Length` parameter of the `Write` struct in the `Parameter` union (_phew_ - that was long). The `Parameter` union is an important component of `IO_STACK_LOCATION` which contains many different structures corresponding to different IRPs, which, in our case, is the `Write` structure. Coming back, we check the `Length` value of `Write` and in case we find that it is less than the size of the `ThreadData` structure, we set the appropriate `NTSTATUS` and jump to complete the I/O Request. 
+
 
 ----
 
