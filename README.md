@@ -28,7 +28,7 @@ We will be breaking down this section by the different functions which constitut
 
 - [`DriverEntry()`](#driverentry) - This serves as an entry point when the driver is loaded by the system
 - [`BoosterCreateClose()`](#boostercreateclose) - This function handles Create/Close dispatch routines issued by the Client
-- [`BoosterWrite()`](#boosterwrite) - This function handles Write dispatch routine 
+- [`BoosterWrite()`](#boosterwrite) - This function handles the Write dispatch routine 
 - [`BoosterUnload()`](#boosterunload) - This function is called when the system unloads our driver
 
 ## DriverEntry
@@ -86,14 +86,14 @@ Following that, we use the `IoCreateDevice()` to go ahead and actually create th
 |`BOOLEAN Exclusive` |`FALSE`| Specifies if the device object represents an [exclusive device](https://learn.microsoft.com/en-us/windows-hardware/drivers/). Most drivers set this value to **FALSE**. |
 |`PDEVICE_OBJECT *DeviceObject` |`&device_obj`| Pointer to a variable that receives a pointer to the newly created [DEVICE_OBJECT](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_device_object) structure. |
 
-If the function runs successfully - we should have a valid Device object. This address to this device can also be found at the first index of the linked list pointed by `DeviceObject` field of `DriverObject`. 
+If the function runs successfully - we should have a valid Device object. This address to this device can also be found at the first index of the linked list pointed by the `DeviceObject` field of `DriverObject`. 
 
 ![](https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/images/3devobj.png)
 
 
 Next up, we also create a symbolic link for the device so that the client can easily access it. We use the `IoCreateSymbolicLink()` function to create a symbolic link to our device called `\??\Booster` where `\??` is a "fake" prefix that refers to per-user Dos devices. 
 
-However, if the `IoCreateSymbolicLink()` fails, we need to delete the previously created device object as if `DriverEntry()` function returns something other than `STATUS_SUCCESS`, the unload routine is never called - so we don't have any opportunities to clean up after ourselves. If we do not delete the device object - we will leak the device object.  
+However, if the `IoCreateSymbolicLink()` fails, we need to delete the previously created device object as if the `DriverEntry``()`` function returns something other than `STATUS_SUCCESS`, the unload routine is never called - so we don't have any opportunities to clean up after ourselves. If we do not delete the device object - we will leak the device object.  
 
 Finally, we return the valid `NTSTATUS` from the function signifying that the `DriverEntry` routine was complete. 
 
@@ -119,7 +119,7 @@ The function takes in two parameters - the pointer to the `DriverObject`, and a 
 
 - First, we set the final status of the request as `STATUS_SUCCESS` by assigning that value to the `Status` component of the [`IO_STATUS_BLOCK`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_io_status_block). The `IO_STATUS_BLOCK` structure stores status and information before calling `IoCompleteRequest()`[more on that in a moment].
 - Next up, we set the `Information` field of `IoStatus` to indicate that we do not pass any additional information to the Client. For example, for Write/Read, this field can define the number of bytes that were written/read and return that information to the caller. Since for Create/Close we don't have any such requirements, we set it to 0. 
-- Finally, we complete the request with [`IoCompleteRequest()`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-iocompleterequest) indicating that we have completed the I/O request and returns the IRP to the I/O manager. We pass two parameters to the function - the `Irp` structure pointer as well as the value for the priority boost for the original thread that requested the operation. Since we complete the IRP synchronously, we set it to 0.
+- Finally, we complete the request with [`IoCompleteRequest()`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-iocompleterequest) indicating that we have completed the I/O request and returned the IRP to the I/O manager. We pass two parameters to the function - the `Irp` structure pointer as well as the value for the priority boost for the original thread that requested the operation. Since we complete the IRP synchronously, we set it to 0.
 - Finally, we return the same status as the one we put in `Irp->IoStatus.Status`. However, we cannot just something like `return Irp->IoStatus.Status` because after the `IoCompleteRequest()` function is called - the value stored in the address might change.
 
 With this, we complete the function allowing us to open and close handles to the driver. Onto the next 🚀
@@ -128,7 +128,7 @@ With this, we complete the function allowing us to open and close handles to the
 
 ## BoosterWrite
 
-The code we have written so far can more or less be considered as boiler template - something which we would find unchanged across a lot of future work, but this function is the crux of the whole driver.
+The code we have written so far can more or less be considered a boiler template - something which we would find unchanged across a lot of future work, but this function is the crux of the whole driver.
 
 ```c
 NTSTATUS BoosterWrite(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
@@ -143,7 +143,7 @@ NTSTATUS BoosterWrite(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
 		goto io;
 	}
 
-	ThreadData * p_data = (ThreadData*)(Irp->AssociatedIrp.SystemBuffer);
+	ThreadData * p_data = (ThreadData*)(Irp->UserBuffer);
 	if (p_data == NULL || p_data->TargetPriority < 1 || p_data->TargetPriority > 31) {
 		status = STATUS_INVALID_PARAMETER;
 		goto io;
@@ -166,16 +166,25 @@ io:
 }
 ```
 
-The first thing we do is get a pointer to the IRP's stack with [`IoGetCurrentIrpStackLocation()`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-iogetcurrentirpstacklocation) - essentially returning a pointer to a [`IO_STACK_LOCATION`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_io_stack_location) structure which contains information associated with each IRP (more about these in some future article). Another important point to note before we proceed is to look into the `BoosterCommon.h` header file which defines the `ThreadData` structure as follows:
+The first thing we do is get a pointer to the IRP's stack with [`IoGetCurrentIrpStackLocation()`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-iogetcurrentirpstacklocation) - essentially returning a pointer to an [`IO_STACK_LOCATION`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_io_stack_location) structure which contains information associated with each IRP (more about these in some future article). Another important point to note before we proceed is to look into the `BoosterCommon.h` header file which defines the `ThreadData` structure as follows:
+
 ```c
-typedef struct _ThreadData{}
+typedef struct _ThreadData {
+	_In_	ULONG ThreadId;
+	_In_	int TargetPriority;
+} ThreadData, *PThreadData;
 ```
 
 This structure will be shared by the Driver and the Client to pass information back and forth. 
 
-One important thing to do is to make sure that we got the right data from the Client and enforce the necessary checks on the Driver side of the code regardless of the restrictions imposed by the client code, just to make sure we dont get a BSOD. 
+One important thing to do is to make sure that we got the right data from the Client and enforce the necessary checks on the Driver side of the code regardless of the restrictions imposed by the client code, just to make sure we don't get a BSOD. 
 
-The first thing we do is check the length of the buffer received from the Client  - to ensure that we have received the complete structure. For this we check the the `Length` parameter of the `Write` struct in the `Parameter` union (_phew_ - that was long). The `Parameter` union is an important component of `IO_STACK_LOCATION` which contains many different structures corresponding to different IRPs, which, in our case, is the `Write` structure. Coming back, we check the `Length` value of `Write` and in case we find that it is less than the size of the `ThreadData` structure, we set the appropriate `NTSTATUS` and jump to complete the I/O Request. 
+The first thing we do is check the length of the buffer received from the Client  - to ensure that we have received the complete structure. For this, we check the `Length` parameter of the `Write` struct in the `Parameter` union (_phew_ - that was long). The `Parameter` union is an important component of `IO_STACK_LOCATION` which contains many different structures corresponding to different IRPs, which, in our case, is the `Write` structure. Coming back, we check the `Length` value of `Write` and in case we find that it is less than the size of the `ThreadData` structure, we set the appropriate `NTSTATUS` and jump to complete the I/O Request. 
+
+Next, we need a pointer to the data sent through by the client and we get it from the `UserBuffer` component of the `IRP` structure. This is the user-mode address provided by the client but since we are operating from Kernel Land, we have access to it without any trouble. This isn't the best way(or the safest) way to go about things but this is what we are working with for now. Note that we can do this because the thread that makes the Write dispatch call, is the same one that jumps into the Kernel via `NtWriteFile` syscall - hence we have the correct process context. 
+
+We map the buffer to a pointer of the type `ThreadData` and then proceed to check it the pointer is valid, followed by checks to ensure that the requested thread priority lies in the valid range of 1 to 31 (we cannot have a thread priority of 0 as [only the zero-page thread can have a priority of zero](https://learn.microsoft.com/en-us/windows/win32/procthread/scheduling-priorities)). If these checks fail, we again set the appropriate `NTSTATUS` and skip to completing the I/O Request.
+
 
 
 ----
@@ -224,16 +233,32 @@ int main(int argc, char* argv[]) {
 }
 ```
 
-Before we begin diving into `main()`, notice we include the `BoosterCommon.h` header which we had previously used in the Driver. We include this header file so we can have access to the `ThreadData` structure to have a uniform definition throughout. 
+Before we begin diving into `main()`, notice we include the `BoosterCommon.h` header which we had previously used in the Driver. We include this header file so we can have access to the `ThreadData` structure used to pass information to the Driver.
 
-Looking into `main()`, we take in the target thread id and the priority we want to set it to from the command line. Then, after performing some checks to make sure the inputs are reasonable, we try to print the current thread's base priority.
+Looking into `main()`, we take in the target Thread ID and the priority we want to set it to from the command line. Then, after performing some checks to make sure the inputs are reasonable, we print the current thread's base priority.
 
-Now comes the interesting part of the code. We initialize a `ThreadData` with the provided thread id and the target priority. This is the structure we will use to communicate with the Driver. 
+We initialize a `ThreadData` with the provided Thread ID and the target priority - we will use this to tell the driver what we want. Next up, we open a handle to the `Booster` Device with:
 
-Next, we open a handle to the `BoosterDriver` Device with:
 ```
-HANDLE hDevice = CreateFile(L"\\\\.\\BoosterDriver", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+HANDLE hDevice = CreateFile(L"\\\\.\\Booster", GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 ```
 
-The parameters to `CreateFile()` are important here:
-- `lpFileName`: This indicates the [device naming co](https://learn.microsoft.com/en-us/windows/win32/fileio/defining-an-ms-dos-device-name)
+Dissecting the parameters passed to `CreateFile()` we have as follows:
+
+| Parameter | Value | Description |
+|---|---|---|
+|`LPCSTR lpFileName` | `L"\\\\.\\Booster"` | The device path which points to the Booster device in the [Device Namespace](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file)|
+| `DWORD dwDesiredAccess` | `GENERIC_WRITE` | Request `Write` access |
+| `DWORD dwShareMode` | 0 | Do not share Device| 
+| `LPSECURITY_ATTRIBUTES lpSecurityAttributes` | `NULL` | No specific security attributes are required | 
+| `DWORD dwCreationDisposition` | `OPEN_EXISTING` | This is the only acceptable value for Devices as we can only open a handle to a device which already exists |
+| `DWORD dwFlagsAndAttributes` | 0 | No special flags and attributes are necessary | 
+| `HANDLE hTemplateFile` | `NULL` | No template file is necessary |
+
+This should get us a handle to the Device. We can then use `WriteFile()` to communicate with the Device and send the previously filled `ThreadData` structure. If the `WriteFile()` succeeds, we should see that the Dynamic priority for the thread should be set to target priority. 
+
+Finally, we close the open handle to the device and exit out of the client program.
+
+---
+
+With that, we have completed the driver and the Client programs. Once compiled, it is time to see them in action.

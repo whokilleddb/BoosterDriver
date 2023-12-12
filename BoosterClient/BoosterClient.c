@@ -34,10 +34,13 @@ int main(int argc, char* argv[]) {
 	// Try to print current thread priority
 	HANDLE hThread = OpenThread(THREAD_QUERY_INFORMATION, FALSE, thread_id);
 	if (hThread) {
-		LONG _ct_priority = 0;
-		BOOL bresult = GetThreadInformation(hThread, ThreadAbsoluteCpuPriority, &_ct_priority, sizeof(LONG));
-		if (bresult) {
-			printf("[i] Current Thread Base Priority:\t%ld\n", _ct_priority);
+		int _p_level = GetThreadPriority(hThread);
+		if (_p_level != THREAD_PRIORITY_ERROR_RETURN){
+			LONG _ct_priority = 0;
+			BOOL bresult = GetThreadInformation(hThread, ThreadAbsoluteCpuPriority, &_ct_priority, sizeof(LONG));
+			if (bresult) {
+				printf("[i] Current Thread Priority:\t%ld\n", _ct_priority + _p_level);
+			}
 		}
 		CloseHandle(hThread);
 	}

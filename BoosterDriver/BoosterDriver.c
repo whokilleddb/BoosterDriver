@@ -36,7 +36,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath)
 		KdPrint((DRIVER_PREFIX "Error creating device (0x%X)\n", status));
 		return status;
 	}
-	device_obj->Flags |= DO_BUFFERED_IO;
+//	device_obj->Flags |= DO_BUFFERED_IO;
 
 	// Create symbolic link
 	status = IoCreateSymbolicLink(&symlink_name, &device_name);
@@ -83,7 +83,7 @@ NTSTATUS BoosterWrite(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
 		goto io;
 	}
 
-	ThreadData * p_data = (ThreadData*)(Irp->AssociatedIrp.SystemBuffer);
+	ThreadData * p_data = (ThreadData*)(Irp->UserBuffer);
 	if (p_data == NULL || p_data->TargetPriority < 1 || p_data->TargetPriority > 31) {
 		status = STATUS_INVALID_PARAMETER;
 		goto io;
