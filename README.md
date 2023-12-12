@@ -124,8 +124,17 @@ The function takes in two parameters - the pointer to the `DriverObject`, and a 
 
 With this, we complete the function allowing us to open and close handles to the driver. Onto the next 🚀
 
-
 ---
+
+## BoosterWrite
+
+The code we have written so far can more or less be considered as boiler template - something which we would find unchanged across a lot of future work, but this function is the crux of the whole driver.
+
+```c
+
+```
+
+----
 
 # The Client
 
