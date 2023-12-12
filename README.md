@@ -4,7 +4,7 @@ A Proof-of-Code and code walkthrough to demonstrate how to facilitate communicat
 
 In this repository, we write a Client and a Driver which work together to boost a thread's Base Priority. 
 
-## Usage
+# Usage
 
 To send a signal to the Driver to increase the base priority of a thread, use the following command:
 
@@ -12,17 +12,17 @@ To send a signal to the Driver to increase the base priority of a thread, use th
 BoosterClient.exe <Thread ID> <Target Priority>
 ```
 
-## Walkthrough
+# Walkthrough
 
 This part of the guide walks you through the Driver and Client code to explain the underlying concepts. First, we take a look into the driver itself which explores concepts like Handling Dispatch routines, Major Functions, etc, while the Client covers topics like how to use `CreateFile()` and `WriteFile()` to communicate with a driver. 
 
 Also, we briefly touch upon IRQs but more upon that in future articles. 
 
-## References
+# References
 
 This article is directly influenced by [@zodicon's Windows Internal training](https://training.trainsec.net/view/courses/windows-kernel-programming-1) and I recommend everyone to check it out.  
 
-### The Driver
+# The Driver
 
 We will be breaking down this section by the different functions which constitute our driver, namely:
 
@@ -31,7 +31,7 @@ We will be breaking down this section by the different functions which constitut
 - [`BoosterWrite()`](#boosterwrite) - This function handles Write dispatch routine 
 - [`BoosterUnload()`](#boosterunload) - This function is called when the system unloads our driver
 
-#### DriverEntry
+## DriverEntry
 
 Looking at the `DriverEntry()` function, it has the following code:
 ```c
@@ -99,7 +99,7 @@ Finally, we return the valid `NTSTATUS` from the function signifying that the `D
 
 ----
 
-#### BoosterCreateClose
+## BoosterCreateClose
 
 This function is responsible for handling Create/Close dispatch routines - and has the following code:
 
@@ -127,7 +127,7 @@ With this, we complete the function allowing us to open and close handles to the
 
 ---
 
-### The Client
+# The Client
 
 With the driver done, we can take a look at the client which we would use to send messages to the driver itself. The pseudo-code for the client looks as such:
 
