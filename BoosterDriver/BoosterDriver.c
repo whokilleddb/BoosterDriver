@@ -52,7 +52,6 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath)
 // Dispatch routine for Create/Close
 NTSTATUS BoosterCreateClose(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
 	UNREFERENCED_PARAMETER(_DriverObject);
-	KdPrint((DRIVER_PREFIX "CreateClose\n"));
 
 	HANDLE h_curr_pid = PsGetCurrentProcessId();
 	ULONG u_curr_pid = HandleToULong(h_curr_pid); 

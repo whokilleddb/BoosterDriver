@@ -284,4 +284,56 @@ Finally, we close the open handle to the device and exit out of the client progr
 
 ---
 
-With that, we have completed the driver and the Client programs. Once compiled, it is time to see them in action.
+With that, we have completed the Driver and the Client programs. Once compiled, it is time to see them in action.
+
+----
+
+# Driver-Client in Action
+
+First, we [create a kernel-mode service using `Service Controller` and use it launch our driver while capturing events using `DebugView`](https://github.com/whokilleddb/HelloWorldDriver?tab=readme-ov-file#installing-driver) .  As soon as we start the service, we should get an output in `DebugView` as such:
+
+![](imgs/sc_start_dbgview.png)
+
+Along with this, we should also see two more things:
+
+- A `Booster` device created under the `Device Object Namespace`.
+  ![](./imgs/booster_device.png)
+
+- A symbolic link the `Booster` Device in the `GLOBAL??` namespace. 
+  ![](./imgs/booster_symlink.png)
+  
+Okay, so our device and symbolic link was created - so far so good. Time to actually see the client and driver in action. First, we pick a thread from a process to boost. We are going with this one from `msedge.exe` with the Thread ID being `8116`:
+
+![](imgs/target_tid.png)
+
+We would try to set the **Dynamic Priority** of this thread to, let's say, 20 using our client as:
+
+```
+BoosterClient.exe 8116 20
+```
+
+As soon as we do it, we should see more output on `DebugView` where it indicates that the priority change happened:
+
+![](imgs/dbgview_pchange.png)
+
+We see that the Client issued the `Create` dispatch call to open a handle to the device, a `Write` dispatch call to request a change in Thread Priority, and a `Close` dispatch call the close the previously acquired handle. 
+
+Further confirming that the priority was successfully boosted, we have:
+
+![](imgs/boosted_tid.png)
+
+Finally we stop the Kernel-service, which should cause the driver to be unloaded and the unload routine being called - thereby deleting our device and symbolic link:
+
+![](imgs/booster_unload.png)
+
+Therefore, our Client-Driver system seems to work as intended! Hurrah! 
+
+![](imgs/celebrate.gif)
+
+---
+
+# Conclusion
+
+This concludes the code walkthrough of this project. This blog post is a part of my efforts to document my journey into Windows Kernel Land while going through [@zodicon's Windows Internal training](https://training.trainsec.net/view/courses/windows-kernel-programming-1). Feel free to reach out to me with any and all feedback - and follow my [Github](https://github.com/whokilleddb/)/[LinkedIn](https://www.linkedin.com/in/whokilleddb?originalSubdomain=in) for more updates in the future. Till next time - Happy Hacking 🎉
+
+![](imgs/bye.gif)
