@@ -99,21 +99,12 @@ Finally, we return the valid `NTSTATUS` from the function signifying that the `D
 
 #### BoosterCreateClose
 
-This function 
+This function is responsible for handling Create/Close dispatch routines - and has the following code:
 
 ```c
 NTSTATUS BoosterCreateClose(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
-  KdPrint((DRIVER_PREFIX "CreateClose\n"));
-
-  HANDLE h_curr_pid = PsGetCurrentProcessId();
-  ULONG u_curr_pid = HandleToULong(h_curr_pid); 
-
-  if (IoGetCurrentIrpStackLocation(Irp)->MajorFunction == IRP_MJ_CREATE) {
-    KdPrint((DRIVER_PREFIX "Create called from process %u\n", u_curr_pid));
-  }
-  else {
-  KdPrint((DRIVER_PREFIX "Close called from process %u\n", u_curr_pid));
-  }
+  ...      
+  ...
 
   Irp->IoStatus.Status = STATUS_SUCCESS;
   Irp->IoStatus.Information = 0;
@@ -121,6 +112,16 @@ NTSTATUS BoosterCreateClose(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
   return STATUS_SUCCESS;
 }
 ```
+
+The function takes in two parameters - the pointer to the `DriverObject`, and a pointer to an [`IRP`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_irp) structure that represents an I/O request packet. For our driver, we won't need anything fancy - so we would just let the operation complete successfully. To do it, we need to do a couple of things:
+
+- First, we set the final status of the request as `STATUS_SUCCESS` by assigning that value to the `Status` component of the [`IO_STATUS_BLOCK`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_io_status_block). The `IO_STATUS_BLOCK` structure stores status and information before calling `IoCompleteRequest()`[more on that in a moment].
+- Next up, we set the `Information` field of `IoStatus` to indicate that we do not pass any additional information to the Client. For example, for Write/Read, this field can define the number of bytes that were written/read and return that information to the caller. Since for Create/Close we don't have any such requirements, we set it to 0. 
+- Finally, we complete the request with [`IoCompleteRequest()`](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-iocompleterequest) indicating that we have completed the I/O request and returns the IRP to the I/O manager. We pass two parameters to the function - the `Irp` structure pointer as well as the value for the priority boost for the original thread that requested the operation. Since we complete the IRP synchronously, we set it to 0.
+- Finally, we return the same status as the one we put in `Irp->IoStatus.Status`. However, we cannot just something like `return Irp->IoStatus.Status` because after the `IoCompleteRequest()` function is called - the value stored in the address might change.
+
+With this, we complete the function allowing us to open and close handles to the driver. Onto the next 🚀
+
 
 ---
 
