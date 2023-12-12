@@ -1,4 +1,5 @@
 #include <ntifs.h>
+#include "BoosterCommon.h"
 #define DRIVER_PREFIX "BoosterDriver: "
 
 void BoosterUnload(PDRIVER_OBJECT);
@@ -6,6 +7,7 @@ NTSTATUS BoosterCreateClose(PDEVICE_OBJECT, PIRP Irp);
 NTSTATUS BoosterWrite(PDEVICE_OBJECT, PIRP Irp);
 
 NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath) {
+	UNREFERENCED_PARAMETER(_RegistryPath);
 	KdPrint((DRIVER_PREFIX "DriverEntry 0x%p\n", DriverObject));
 
 	// Set major functions to indicate supported functions
@@ -30,7 +32,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath)
 		0,									// No additional information for the device
 		FALSE,								// Device is not exclusive 
 		&device_obj);						// Receive the Device object
-	if (!NT_STATUS(status)) {
+	if (!NT_SUCCESS(status)) {
 		KdPrint((DRIVER_PREFIX "Error creating device (0x%X)\n", status));
 		return status;
 	}
@@ -49,6 +51,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING _RegistryPath)
 
 // Dispatch routine for Create/Close
 NTSTATUS BoosterCreateClose(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
+	UNREFERENCED_PARAMETER(_DriverObject);
 	KdPrint((DRIVER_PREFIX "CreateClose\n"));
 
 	HANDLE h_curr_pid = PsGetCurrentProcessId();
@@ -69,8 +72,37 @@ NTSTATUS BoosterCreateClose(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
 
 // Dispatch routine for Write 
 NTSTATUS BoosterWrite(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
+	UNREFERENCED_PARAMETER(_DriverObject);
+
+	ULONG info = 0;
+	PETHREAD thread = NULL;
+	NTSTATUS status = STATUS_SUCCESS;
 	PIO_STACK_LOCATION irp_sp = IoGetCurrentIrpStackLocation(Irp);
-	return STATUS_SUCCESS;
+	if (irp_sp->Parameters.Write.Length < sizeof(ThreadData)) {
+		status = STATUS_BUFFER_TOO_SMALL;
+		goto io;
+	}
+
+	ThreadData * p_data = (ThreadData*)(Irp->AssociatedIrp.SystemBuffer);
+	if (p_data == NULL || p_data->TargetPriority < 1 || p_data->TargetPriority > 31) {
+		status = STATUS_INVALID_PARAMETER;
+		goto io;
+	}
+
+	HANDLE h_tid = ULongToHandle(p_data->ThreadId);
+	status = PsLookupThreadByThreadId(h_tid, &thread);
+	if (!NT_SUCCESS(status)) goto io;
+
+	KPRIORITY _old_priority = KeSetPriorityThread(thread, p_data->TargetPriority);
+	KdPrint((DRIVER_PREFIX "Changed priority from %ld to %d", _old_priority, p_data->TargetPriority));
+	ObDereferenceObject(thread);
+	info = sizeof(ThreadData);
+
+io:
+	Irp->IoStatus.Status = status;
+	Irp->IoStatus.Information = info;
+	IoCompleteRequest(Irp, 0);
+	return status;
 }
 
 // Device Unload routine for driver

@@ -131,8 +131,42 @@ With this, we complete the function allowing us to open and close handles to the
 The code we have written so far can more or less be considered as boiler template - something which we would find unchanged across a lot of future work, but this function is the crux of the whole driver.
 
 ```c
+NTSTATUS BoosterWrite(PDEVICE_OBJECT _DriverObject, PIRP Irp) {
+	UNREFERENCED_PARAMETER(_DriverObject);
 
+	ULONG info = 0;
+	PETHREAD thread = NULL;
+	NTSTATUS status = STATUS_SUCCESS;
+	PIO_STACK_LOCATION irp_sp = IoGetCurrentIrpStackLocation(Irp);
+	if (irp_sp->Parameters.Write.Length < sizeof(ThreadData)) {
+		status = STATUS_BUFFER_TOO_SMALL;
+		goto io;
+	}
+
+	ThreadData * p_data = (ThreadData*)(Irp->AssociatedIrp.SystemBuffer);
+	if (p_data == NULL || p_data->TargetPriority < 1 || p_data->TargetPriority > 31) {
+		status = STATUS_INVALID_PARAMETER;
+		goto io;
+	}
+
+	HANDLE h_tid = ULongToHandle(p_data->ThreadId);
+	status = PsLookupThreadByThreadId(h_tid, &thread);
+	if (!NT_SUCCESS(status)) goto io;
+
+	KPRIORITY _old_priority = KeSetPriorityThread(thread, p_data->TargetPriority);
+	KdPrint((DRIVER_PREFIX "Changed priority from %ld to %d", _old_priority, p_data->TargetPriority));
+	ObDereferenceObject(thread);
+	info = sizeof(ThreadData);
+
+io:
+	Irp->IoStatus.Status = status;
+	Irp->IoStatus.Information = info;
+	IoCompleteRequest(Irp, 0);
+	return status;
+}
 ```
+
+The 
 
 ----
 
