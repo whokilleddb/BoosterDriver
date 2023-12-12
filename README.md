@@ -97,6 +97,8 @@ However, if the `IoCreateSymbolicLink()` fails, we need to delete the previously
 
 Finally, we return the valid `NTSTATUS` from the function signifying that the `DriverEntry` routine was complete. 
 
+----
+
 #### BoosterCreateClose
 
 This function is responsible for handling Create/Close dispatch routines - and has the following code:
